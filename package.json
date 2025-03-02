@@ -1,10 +1,42 @@
 {
-  "name": "ncCrm",
+  "name": "nc-crm",
   "version": "1.0.0",
-  "description": "",
+  "description": "Low-code платформа для CRM системи",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest",
+    "lint": "eslint . --ext .ts",
+    "build": "lerna run build",
+    "dev": "lerna run dev --parallel",
+    "start": "lerna run start --parallel"
   },
-  "private": true
+  "private": true,
+  "workspaces": [
+    "modules/low-code-platform/*"
+  ],
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^5.0.0",
+    "@types/helmet": "^0.0.48",
+    "@types/jest": "^29.5.4",
+    "@types/kafkajs": "^1.8.2",
+    "@types/mongoose": "^5.11.96",
+    "@types/node": "^20.5.7",
+    "@types/winston": "^2.4.4",
+    "@typescript-eslint/eslint-plugin": "^6.5.0",
+    "@typescript-eslint/parser": "^6.5.0",
+    "eslint": "^8.48.0",
+    "jest": "^29.6.4",
+    "lerna": "^7.1.5",
+    "ts-jest": "^29.1.1",
+    "typescript": "^5.2.2"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "helmet": "^8.0.0",
+    "kafkajs": "^2.2.4",
+    "mongoose": "^8.11.0",
+    "winston": "^3.17.0"
+  }
 }
