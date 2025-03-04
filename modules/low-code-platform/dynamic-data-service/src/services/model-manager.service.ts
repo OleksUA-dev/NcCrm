@@ -68,7 +68,9 @@ export class ModelManager implements IModelManager {
             if (this.models.has(entityName)) {
                 // Видалення колекції
                 const model = this.models.get(entityName);
-                await mongoose.connection.dropCollection(model.collection.name);
+                if (model) {
+                    await mongoose.connection.dropCollection(model.collection.name);
+                }
 
                 // Видалення моделі з кеша
                 this.models.delete(entityName);
@@ -104,10 +106,15 @@ export class ModelManager implements IModelManager {
             // В MongoDB не потрібно змінювати схему для додавання полів
             // Але ми можемо додати індекс для нового поля для оптимізації пошуку
             if (this.models.has(entityName)) {
-                const model = this.models.get(entityName)!;
-                await model.collection.createIndex({ [`data.${fieldName}`]: 1 });
+                const model = this.models.get(entityName);
+                if (model) {
+                    // Створюємо індекс для поля
+                    const indexSpec: any = {};
+                    indexSpec[`data.${fieldName}`] = 1;
+                    await model.collection.createIndex(indexSpec);
 
-                this.logger.info(`Додано поле ${fieldName} до моделі ${entityName} з індексом`);
+                    this.logger.info(`Додано поле ${fieldName} до моделі ${entityName} з індексом`);
+                }
             } else {
                 this.logger.warn(`Модель для сутності ${entityName} не знайдена`);
             }
@@ -125,19 +132,33 @@ export class ModelManager implements IModelManager {
         // Але можемо оновити індекс
         try {
             if (this.models.has(entityName)) {
-                const model = this.models.get(entityName)!;
+                const model = this.models.get(entityName);
+                if (model) {
+                    try {
+                        // Спочатку отримуємо список індексів
+                        const indexes = await model.collection.indexes();
 
-                // Спочатку видаляємо старий індекс
-                try {
-                    await model.collection.dropIndex({ [`data.${fieldName}`]: 1 });
-                } catch (e) {
-                    // Ігноруємо помилку, якщо індекс не існує
+                        // Шукаємо індекс для нашого поля
+                        const fieldIndexName = indexes.find(idx =>
+                            idx.key && `data.${fieldName}` in idx.key
+                        )?.name;
+
+                        // Якщо індекс знайдено, видаляємо його
+                        if (fieldIndexName) {
+                            await model.collection.dropIndex(fieldIndexName);
+                        }
+                    } catch (e) {
+                        // Ігноруємо помилку, якщо індекс не існує
+                        this.logger.warn(`Не вдалося видалити індекс для поля ${fieldName}:`, e);
+                    }
+
+                    // Створюємо новий індекс
+                    const indexSpec: any = {};
+                    indexSpec[`data.${fieldName}`] = 1;
+                    await model.collection.createIndex(indexSpec);
+
+                    this.logger.info(`Оновлено поле ${fieldName} в моделі ${entityName}`);
                 }
-
-                // Створюємо новий індекс
-                await model.collection.createIndex({ [`data.${fieldName}`]: 1 });
-
-                this.logger.info(`Оновлено поле ${fieldName} в моделі ${entityName}`);
             } else {
                 this.logger.warn(`Модель для сутності ${entityName} не знайдена`);
             }
@@ -155,19 +176,33 @@ export class ModelManager implements IModelManager {
         // Але ми можемо видалити індекс і запустити оновлення всіх документів, щоб видалити поле
         try {
             if (this.models.has(entityName)) {
-                const model = this.models.get(entityName)!;
+                const model = this.models.get(entityName);
+                if (model) {
+                    try {
+                        // Спочатку отримуємо список індексів
+                        const indexes = await model.collection.indexes();
 
-                // Видаляємо індекс
-                try {
-                    await model.collection.dropIndex({ [`data.${fieldName}`]: 1 });
-                } catch (e) {
-                    // Ігноруємо помилку, якщо індекс не існує
+                        // Шукаємо індекс для нашого поля
+                        const fieldIndexName = indexes.find(idx =>
+                            idx.key && `data.${fieldName}` in idx.key
+                        )?.name;
+
+                        // Якщо індекс знайдено, видаляємо його
+                        if (fieldIndexName) {
+                            await model.collection.dropIndex(fieldIndexName);
+                        }
+                    } catch (e) {
+                        // Ігноруємо помилку, якщо індекс не існує
+                        this.logger.warn(`Не вдалося видалити індекс для поля ${fieldName}:`, e);
+                    }
+
+                    // Видаляємо поле з усіх документів
+                    const unsetSpec: any = {};
+                    unsetSpec[`data.${fieldName}`] = 1;
+                    await model.updateMany({}, { $unset: unsetSpec });
+
+                    this.logger.info(`Видалено поле ${fieldName} з моделі ${entityName}`);
                 }
-
-                // Видаляємо поле з усіх документів
-                await model.updateMany({}, { $unset: { [`data.${fieldName}`]: 1 } });
-
-                this.logger.info(`Видалено поле ${fieldName} з моделі ${entityName}`);
             } else {
                 this.logger.warn(`Модель для сутності ${entityName} не знайдена`);
             }
