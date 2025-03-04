@@ -8,6 +8,11 @@ import dotenv from 'dotenv';
 import { Kafka } from 'kafkajs';
 import winston from 'winston';
 
+// Імпорт сервісів
+import { ModelManager } from './services/model-manager.service';
+import { DynamicDataService } from './services/dynamic-data.service';
+import { KafkaHandler } from './services/kafka-handler.service';
+
 // Ініціалізація конфігурації з .env файлу
 dotenv.config();
 
@@ -57,6 +62,11 @@ const kafka = new Kafka({
 const producer = kafka.producer();
 const consumer = kafka.consumer({ groupId: 'dynamic-data-service-group' });
 
+// Ініціалізація сервісів
+const modelManager = new ModelManager(logger);
+const dynamicDataService = new DynamicDataService(modelManager, logger);
+const kafkaHandler = new KafkaHandler(modelManager, logger);
+
 // Функція для підключення до Kafka
 const connectKafka = async () => {
     try {
@@ -79,27 +89,30 @@ const connectKafka = async () => {
                     const payload = JSON.parse(message.value.toString());
                     logger.info(`Отримано повідомлення з теми ${topic}:`, payload);
 
-                    // Логіка обробки повідомлень буде додана пізніше
-                    // В залежності від теми, ми будемо створювати, оновлювати або видаляти колекції та поля
-                    switch (topic) {
-                        case 'entity-created':
-                            // TODO: Створення нової колекції
-                            break;
-                        case 'entity-updated':
-                            // TODO: Оновлення існуючої колекції
-                            break;
-                        case 'entity-deleted':
-                            // TODO: Видалення колекції
-                            break;
-                        case 'field-created':
-                            // TODO: Додавання нового поля до колекції
-                            break;
-                        case 'field-updated':
-                            // TODO: Оновлення поля
-                            break;
-                        case 'field-deleted':
-                            // TODO: Видалення поля
-                            break;
+                    // Обробка подій
+                    try {
+                        switch (topic) {
+                            case 'entity-created':
+                                await kafkaHandler.handleEntityCreated(payload);
+                                break;
+                            case 'entity-updated':
+                                await kafkaHandler.handleEntityUpdated(payload);
+                                break;
+                            case 'entity-deleted':
+                                await kafkaHandler.handleEntityDeleted(payload);
+                                break;
+                            case 'field-created':
+                                await kafkaHandler.handleFieldCreated(payload);
+                                break;
+                            case 'field-updated':
+                                await kafkaHandler.handleFieldUpdated(payload);
+                                break;
+                            case 'field-deleted':
+                                await kafkaHandler.handleFieldDeleted(payload);
+                                break;
+                        }
+                    } catch (error) {
+                        logger.error(`Помилка при обробці події ${topic}:`, error);
                     }
                 }
             }
@@ -109,8 +122,15 @@ const connectKafka = async () => {
     }
 };
 
-// Маршрути API будуть додані пізніше
-// app.use('/api/v1/data', dataRoutes);
+// Імпорт контролера та маршрутів
+import { DynamicDataController } from './controllers/dynamic-data.controller';
+import { createDynamicDataRoutes } from './routes/dynamic-data.routes';
+
+// Ініціалізація контролера
+const dynamicDataController = new DynamicDataController(dynamicDataService);
+
+// Налаштування маршрутів API
+app.use('/api/v1/data', createDynamicDataRoutes(dynamicDataController));
 
 // Старт сервера
 const startServer = async () => {
@@ -137,4 +157,4 @@ process.on('unhandledRejection', (error) => {
 });
 
 // Експорт для тестування
-export { app, connectDB, connectKafka };
+export { app, connectDB, connectKafka, modelManager, dynamicDataService };
