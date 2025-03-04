@@ -41,10 +41,8 @@ export class ModelManager implements IModelManager {
             // В MongoDB неможливо змінити ім'я колекції без перенесення даних
             // Тому створюємо нову модель і позначаємо стару як застарілу
             if (this.models.has(entityName)) {
-                const oldModel = this.models.get(entityName);
-
-                // Потрібно перенести дані зі старої колекції в нову
-                // Це складний процес, який може потребувати додаткової логіки
+                // Замість збереження значення у змінну, просто перевіряємо наявність
+                // та створюємо нову модель
 
                 // Створюємо нову модель з новим іменем таблиці
                 const newModel = createDynamicDataModel(entityName, tableName);
